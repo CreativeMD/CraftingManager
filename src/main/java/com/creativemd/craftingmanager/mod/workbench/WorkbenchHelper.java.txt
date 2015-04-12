@@ -1,0 +1,720 @@
+package com.creativemd.craftingmanager.mod.workbench;
+
+import java.text.DecimalFormat;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Set;
+
+import com.creativemd.craftingmanager.api.common.utils.recipe.BetterShapedRecipe;
+import com.creativemd.craftingmanager.api.common.utils.recipe.BetterShapelessRecipe;
+import com.creativemd.craftingmanager.api.core.ItemInfo;
+import com.creativemd.craftingmanager.mod.workbench.disable.DisableSystem;
+
+import net.minecraft.block.Block;
+import net.minecraft.block.BlockAir;
+import net.minecraft.item.Item;
+import net.minecraft.item.ItemStack;
+import net.minecraft.item.crafting.IRecipe;
+import net.minecraft.item.crafting.ShapedRecipes;
+import net.minecraft.item.crafting.ShapelessRecipes;
+import net.minecraft.nbt.NBTBase;
+import net.minecraft.nbt.NBTBase.NBTPrimitive;
+import net.minecraft.nbt.NBTException;
+import net.minecraft.nbt.NBTSizeTracker;
+import net.minecraft.nbt.NBTTagByte;
+import net.minecraft.nbt.NBTTagByteArray;
+import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.nbt.NBTTagDouble;
+import net.minecraft.nbt.NBTTagEnd;
+import net.minecraft.nbt.NBTTagFloat;
+import net.minecraft.nbt.NBTTagInt;
+import net.minecraft.nbt.NBTTagIntArray;
+import net.minecraft.nbt.NBTTagList;
+import net.minecraft.nbt.NBTTagLong;
+import net.minecraft.nbt.NBTTagShort;
+import net.minecraft.nbt.NBTTagString;
+import net.minecraft.nbt.NBTUtil;
+import net.minecraftforge.common.util.Constants.NBT;
+import net.minecraftforge.oredict.ShapedOreRecipe;
+import net.minecraftforge.oredict.ShapelessOreRecipe;
+
+@Deprecated
+public class WorkbenchHelper {
+
+	public static String getDisabledCategoryString(Object object)
+	{
+		if(object instanceof BetterShapedRecipe)
+		{
+			return "shapedore";
+		}
+		else if(object instanceof ShapedRecipes)
+		{
+			return "shaped";
+		}
+		else if(object instanceof BetterShapelessRecipe)
+		{
+			return "shapelessore";
+		}	
+		else if(object instanceof ShapelessRecipes)
+		{
+			return "shapeless";
+		}	
+		else if(object instanceof IRecipe)
+		{
+			return "irecipe";
+		}
+		return "other";
+	}
+	
+	public static String RecipeToStringDisabled(Object object)
+	{
+		if(object instanceof ShapedOreRecipe)
+		{
+			ShapedOreRecipe recipe = (ShapedOreRecipe) object;
+			return "R-I-" + ItemStacksToStringDisabled(recipe.getInput()) + "-O-" + ItemStackToStringDisabled(recipe.getRecipeOutput());
+		}
+		else if(object instanceof ShapedRecipes)
+		{
+			ShapedRecipes recipe = (ShapedRecipes) object;
+			return "R-I-" + ItemStacksToStringDisabled(recipe.recipeItems) + "-O-" + ItemStackToStringDisabled(recipe.getRecipeOutput());
+		}
+		else if(object instanceof ShapelessOreRecipe)
+		{
+			ShapelessOreRecipe recipe = (ShapelessOreRecipe) object;
+			return "R-I-" + ItemStacksToStringDisabled(recipe.getInput().toArray()) + "-O-" + ItemStackToStringDisabled(recipe.getRecipeOutput());
+		}	
+		else if(object instanceof ShapelessRecipes)
+		{
+			ShapelessRecipes recipe = (ShapelessRecipes) object;
+			return "R-I-" + ItemStacksToStringDisabled(recipe.recipeItems.toArray()) + "-O-" + ItemStackToStringDisabled(recipe.getRecipeOutput());
+		}	
+		else if(object instanceof IRecipe)
+		{
+			IRecipe recipe = (IRecipe) object;
+			return "R-I-" + recipe.getRecipeSize() +"|" + recipe.getClass().getName() + "-O-" + ItemStackToStringDisabled(recipe.getRecipeOutput());
+		}
+		return "unkown";
+	}
+	
+	public static String ItemStacksToStringDisabled(Object[] items)
+	{
+		String Result = "";
+		for(int zahl = 0; zahl < items.length; zahl++)
+		{
+			if(zahl > 0)Result = Result + ";";
+			Object item = items[zahl];
+			if(item instanceof Item){
+				Result = Result + Item.getIdFromItem((Item) item);
+			}else if(item instanceof Block){
+				Result = Result + Block.getIdFromBlock((Block) item);
+			}else if(item instanceof ItemStack){
+				Result = Result + ItemStackToStringDisabled(((ItemStack) item));
+			}else if(item instanceof List<?>){
+				List stacks = (List) item;
+				Result = Result + "{";
+				Result = Result + ItemStacksToStringDisabled(((List) item).toArray());
+				Result = Result + "}";
+			}else if(item instanceof String){
+				Result = Result + item;
+			}else if(item == null){
+				Result = Result + "null";
+			}
+				
+		}
+		return Result;
+	}
+	
+	public static String ItemStackToStringDisabled(ItemStack stack)
+	{
+		if(stack == null || stack.getItem() == null)
+			return "null";
+		String Result = "";
+		Result = Item.getIdFromItem(stack.getItem()) + "|" + stack.getItemDamage() + "|" + stack.stackSize;
+		if(stack.stackTagCompound != null)Result = Result + "|" + stack.stackTagCompound.toString();
+		try
+		{
+			Result = stack.getUnlocalizedName() + "|" + Item.getIdFromItem(stack.getItem()) + "|" + stack.getItemDamage() + "|" + stack.stackSize;
+			if(stack.stackTagCompound != null)Result = Result + "|" + stack.stackTagCompound.toString();
+		}catch (Exception e) {
+			Result = Item.getIdFromItem(stack.getItem()) + "|" + stack.getItemDamage() + "|" + stack.stackSize;
+			if(stack.stackTagCompound != null)Result = Result + "|" + stack.stackTagCompound.toString();
+		}		
+		return Result.replace("\"", "&high");
+	}
+	
+	//null;id;id,damage;id,damage,NBT;
+	public static String ItemStackToStringAdded(Object item) {
+		String result = "";
+		if(item != null)
+		{
+			if(item instanceof ItemStack)
+			{
+				ItemStack recipeOutput = (ItemStack)item;
+				String name = Item.itemRegistry.getNameForObject(recipeOutput.getItem());
+				if(name != null && !name.equals(""))
+				{
+					result += saveString(name);
+					//result += Item.getIdFromItem(recipeOutput.getItem()); Id's can change
+					result += "," + recipeOutput.getItemDamage();
+					result += "," + recipeOutput.stackSize;
+					if(recipeOutput.stackTagCompound != null)
+					{
+						result += "," + saveNBT(recipeOutput.stackTagCompound);
+					}
+				}else{
+					System.out.println("[CraftingManager] Found invalid item");
+				}
+			}else if(item instanceof Block){
+				result += Block.getIdFromBlock((Block) item);
+			}else if(item instanceof Item){
+				result += Item.getIdFromItem((Item) item);
+			}else if(item instanceof ArrayList<?>){
+				result += "ORE";
+			}
+		}else{
+			result = "null";
+		}
+		return result;
+	}
+	
+	public static String RecipeToStringAdded(Object recipeO)
+	{
+		if(recipeO == null)
+			return "";
+		String recipeData = "";
+		int sizeX = 0;
+		int sizeY = 0;
+		if(recipeO instanceof BetterShapedRecipe)
+		{
+			//Item~Info~Info~Info~O@wood
+			for(int zahl2 = 0; zahl2 < ((BetterShapedRecipe)recipeO).getInput().length; zahl2++)	
+			{
+				recipeData += ItemStackToStringAdded(((BetterShapedRecipe)recipeO).getInput()[zahl2]);
+				if(((BetterShapedRecipe)recipeO).itemData[zahl2] != null)
+					recipeData += ((BetterShapedRecipe)recipeO).itemData[zahl2].toString();
+				recipeData += ";";	
+			}
+			sizeX = ((BetterShapedRecipe)recipeO).recipeWidth;
+			sizeY = ((BetterShapedRecipe)recipeO).recipeHeight;
+			
+		}else if(recipeO instanceof BetterShapelessRecipe)
+		{
+			for(int zahl2 = 0; zahl2 < ((BetterShapelessRecipe)recipeO).getInput().size(); zahl2++)	
+			{
+				recipeData += ItemStackToStringAdded(((BetterShapelessRecipe)recipeO).getInput().get(zahl2));
+				if(((BetterShapelessRecipe)recipeO).itemData.get(zahl2) != null)
+					recipeData += ((BetterShapelessRecipe)recipeO).itemData.get(zahl2).toString();
+				recipeData += ";";	
+			}
+		}
+		recipeData += "|" + ItemStackToStringAdded(((IRecipe)recipeO).getRecipeOutput());
+		if(recipeO instanceof BetterShapedRecipe)
+			recipeData +=  "|" + sizeX + "|" + sizeY;
+		return recipeData;
+	}
+	
+	public static String split = "&Split";
+	public static String is = "&IS";
+	public static String arraySplit = "&Array";
+	
+	public static NBTTagCompound loadNBT(String input)
+	{
+		NBTTagCompound result = new NBTTagCompound();
+		String[] tags = input.split(split);
+		for(int zahl = 0; zahl < tags.length; zahl++)
+		{
+			String[] info = tags[zahl].split(is);
+			if(info.length == 3)
+			{
+				String name = loadString(info[0]);
+				String type = info[1];
+				String value = loadString(info[2]);			
+				if(type.equals("TAG_End"))
+					 result.setTag(name, new NBTTagEnd());
+				if(type.equals("TAG_Byte"))
+					 result.setByte(name, Byte.parseByte(value));
+				if(type.equals("TAG_Short"))
+					 result.setShort(name, Short.parseShort(value));
+				if(type.equals("TAG_Int"))
+					 result.setInteger(name, Integer.parseInt(value));
+				if(type.equals("TAG_Long"))
+					 result.setLong(name, Long.parseLong(value));
+				if(type.equals("TAG_Float"))
+					 result.setFloat(name, Float.parseFloat(value));
+				if(type.equals("TAG_Double"))
+					 result.setDouble(name, Double.parseDouble(value));
+				if(type.equals("TAG_Byte_Array"))
+				{
+					String[] data = value.split(arraySplit);
+					byte[] array = new byte[data.length];
+					for(int zahlA = 0; zahlA < data.length; zahlA++)
+						array[zahlA] = Byte.parseByte(data[zahlA]);
+					result.setByteArray(name, array);
+				}
+				if(type.equals("TAG_String"))
+					 result.setString(name, value);
+				if(type.equals("TAG_Int_Array"))
+				{
+					String[] data = value.split(arraySplit);
+					int[] array = new int[data.length];
+					for(int zahlA = 0; zahlA < data.length; zahlA++)
+						array[zahlA] = Integer.parseInt(data[zahlA]);
+					result.setIntArray(name, array);
+				}
+			}
+		}
+		return result;
+	}
+	
+	public static String getName(int p_150283_0_)
+    {
+        switch (p_150283_0_)
+        {
+            case 0:
+                return "TAG_End";
+            case 1:
+                return "TAG_Byte";
+            case 2:
+                return "TAG_Short";
+            case 3:
+                return "TAG_Int";
+            case 4:
+                return "TAG_Long";
+            case 5:
+                return "TAG_Float";
+            case 6:
+                return "TAG_Double";
+            case 7:
+                return "TAG_Byte_Array";
+            case 8:
+                return "TAG_String";
+            case 9:
+                return "TAG_List";
+            case 10:
+                return "TAG_Compound";
+            case 11:
+                return "TAG_Int_Array";
+            case 99:
+                return "Any Numeric Tag";
+            default:
+                return "UNKNOWN";
+        }
+    }
+	
+	public static String saveNBT(NBTTagCompound tag)
+	{
+		String result = "";
+		
+		Set tags = tag.func_150296_c();
+		Iterator iterator = tags.iterator();
+		while(iterator.hasNext())
+		{
+			Object object = iterator.next();
+			if(object instanceof String)
+			{
+				String name = (String) object;
+				NBTBase base = tag.getTag(name);
+				String value = "";
+				String type = getName(base.getId());
+				if(base instanceof NBTTagEnd)
+					value = ((NBTTagEnd)base).toString();
+				if(base instanceof NBTTagByte)
+					value = Byte.toString(((NBTTagByte)base).func_150290_f());
+				if(base instanceof NBTTagShort)
+					value = Short.toString(((NBTTagShort)base).func_150289_e());
+				if(base instanceof NBTTagInt)
+					value = Integer.toString(((NBTTagInt)base).func_150287_d());
+				if(base instanceof NBTTagLong)
+					value = Long.toString(((NBTTagLong)base).func_150291_c());
+				if(base instanceof NBTTagFloat)
+					value = Float.toString(((NBTTagFloat)base).func_150288_h());
+				if(base instanceof NBTTagDouble)
+					value = Double.toString(((NBTTagDouble)base).func_150286_g());
+				if(base instanceof NBTTagByteArray)
+				{
+					byte[] array = ((NBTTagByteArray)base).func_150292_c();
+					for(int zahl = 0; zahl < array.length; zahl++)
+						value += array[zahl] + arraySplit;
+				}
+				if(base instanceof NBTTagString)
+					value = ((NBTTagString)base).func_150285_a_();
+				/*if(base instanceof NBTTagList)
+					value = ((NBTTagList)base).func_150285_a_();
+				if(base instanceof NBTTagCompound)
+					value = ((NBTTagCompound)base).func_150285_a_();*/
+				if(base instanceof NBTTagIntArray)
+				{
+					int[] array = ((NBTTagIntArray)base).func_150302_c();
+					for(int zahl = 0; zahl < array.length; zahl++)
+						value += array[zahl] + arraySplit;
+				}
+				result += saveString(name) + is + type + is + saveString(value) + split;
+			}
+		}
+		//result += "}";
+		return result;
+	}
+	
+	public static String loadString(String input)
+	{
+		for(int zahl = 0; zahl < CharToReplace.length; zahl++)
+			input = input.replace("&var" + String.format("%03d", zahl), CharToReplace[zahl]);
+		return input;
+	}
+	
+	public static String saveString(String input)
+	{
+		for(int zahl = 0; zahl < CharToReplace.length; zahl++)
+			input = input.replace(CharToReplace[zahl], "&var" + String.format("%03d", zahl));
+		return input;
+	}
+	
+	public static Object StringToItemStackAdded(String value)
+	{
+		if(!value.contains(","))
+			return null;
+		String[] Data = value.split(",");
+		String name = "";
+		int id = 0;
+		try{
+			id = Integer.parseInt(Data[0]);
+		}catch(Exception e){
+			id = -1;
+			name = loadString(Data[0]);
+		}
+		Item item = null;
+		Block block = null;
+		if(id == -1)
+		{
+			if(!(Block.getBlockFromName(name) instanceof BlockAir | Block.getBlockFromName(name) == null))
+				block = Block.getBlockFromName(name);
+			if(Item.itemRegistry.getObject(name) != null)
+				item = (Item) Item.itemRegistry.getObject(name);
+		}else{
+			if(!(Block.getBlockById(id) instanceof BlockAir))
+				block = Block.getBlockById(id);
+			else if(Item.getItemById(id) != null)
+				item = Item.getItemById(id);
+		}
+		int damage = -1;
+		if(Data.length > 1)
+			damage = Integer.parseInt(Data[1]);
+		int stackSize = 0;
+		if(Data.length > 2)
+			stackSize = Integer.parseInt(Data[2]);
+		if(item == null && (!(!(block instanceof BlockAir) && block != null)))
+			return null;
+		switch(Data.length)
+		{
+		case 1:
+			if(block != null && item == null)
+				return block;
+			else
+				return item;
+		case 2:
+		case 3:
+			if(block != null && item == null)
+				return new ItemStack(block, stackSize, damage);
+			else
+				return new ItemStack(item, stackSize, damage);	
+					
+		case 4:
+			ItemStack result = null;
+			if(block != null && item == null)
+				result = new ItemStack(block, stackSize, damage);
+			else
+				result = new ItemStack(item, stackSize, damage);	
+ 			if(result != null)
+ 				result.stackTagCompound = loadNBT(Data[3]);
+			return result;
+		default:
+			return null;
+		}
+	}
+	
+	public static ItemStack getItemStack(int id, int stacksize, int damage)
+	{
+		if(!(Block.getBlockById(id) instanceof BlockAir))
+			return new ItemStack(Block.getBlockById(id), stacksize, damage);
+		else if(Item.getItemById(id) != null)
+			return new ItemStack(Item.getItemById(id), stacksize, damage);
+		return null;
+	}
+	
+	public static final String[] CharToReplace = {"!", ",", ";", "|", "#", "<", ">", "%", "@", "*", "~", "&Split", "&IS", "&Array", "{", "}", "\"", ":"};
+	
+	
+	public static Object StringtoRecipeAdded(String recipe, String typ)
+	{
+		/*String[] DataSplit = recipe.split("\\|");
+		if(typ.equals("shapedore") && DataSplit.length == 4)
+		{
+			String[] rows = new String[Integer.parseInt(DataSplit[3])];
+			int xsize = Integer.parseInt(DataSplit[2]);
+			Arrays.fill(rows, "");
+			ItemStack result = ObjectToItemStack(StringToItemStackAdded(DataSplit[1]));
+			
+			String[] Items = DataSplit[0].split(";");
+			ArrayList<Object> par3ArrayOfItemStack = new ArrayList<Object>();
+			ArrayList<Object> itemData = new ArrayList<Object>();
+			for(int zahlI = 0; zahlI < Items.length; zahlI++)
+			{
+				//INfo is left
+				String[] info = Items[zahlI].split(ItemInfo.Splitter);
+				rows[zahlI/xsize] += InttoStr(zahlI);
+				
+				if(!info[0].equals("null"))
+				{
+					String infoData = "";
+					for(int zahlInfo = 1; zahlInfo < info.length; zahlInfo++)
+						infoData += ItemInfo.Splitter + info[zahlInfo];
+					
+					ItemInfo itemInfo = new ItemInfo(infoData);
+					
+					Object item;
+					if(info[0].equals("ORE") | !itemInfo.OreName.equals(""))
+						item = itemInfo.OreName;
+					else
+						item = StringToItemStackAdded(info[0]);
+					
+					if(item != null && !item.equals(""))
+					{
+						itemData.add(InttoStr(zahlI).charAt(0));
+						itemData.add(itemInfo);
+						
+						par3ArrayOfItemStack.add(InttoStr(zahlI).charAt(0));
+						par3ArrayOfItemStack.add(item);
+					}else
+						System.out.println("Found invalid itemstack");
+				}
+			}
+			if(result != null)
+				return new BetterShapedRecipe(result, addArray(rows, itemData.toArray()), addArray(rows, par3ArrayOfItemStack.toArray()));
+			else
+			{
+				System.out.println("Found an invalid recipe! Skipping recipe! Invalid result = null");
+				return null;
+			}
+		}else if(typ.equals("shapelessore") && DataSplit.length == 2){
+			String[] Items = DataSplit[0].split(";");
+			ArrayList<Object> items = new ArrayList<Object>();
+			ArrayList<Object> itemData = new ArrayList<Object>();
+			ItemStack result = ObjectToItemStack(StringToItemStackAdded(DataSplit[1]));
+			for(int zahlI = 0; zahlI < Items.length; zahlI++)
+			{
+				String[] info = Items[zahlI].split(ItemInfo.Splitter);
+				{
+					String infoData = "";
+					for(int zahlInfo = 1; zahlInfo < info.length; zahlInfo++)
+						infoData += ItemInfo.Splitter + info[zahlInfo];
+					
+					ItemInfo itemInfo = new ItemInfo(infoData);
+					Object item;
+					if(info[0].equals("ORE") | !itemInfo.OreName.equals(""))
+						item = itemInfo.OreName;
+					else
+						item = StringToItemStackAdded(info[0]);
+					
+					if(item != null && !item.equals(""))
+					{
+						itemData.add(itemInfo);
+						
+						items.add(item);
+					}else
+						System.out.println("Found invalid itemstack");
+				}
+			}
+			return new BetterShapelessRecipe(result, itemData, items.toArray());
+		}*/
+		return null;
+	}
+	
+	public static String InttoStr(int Input)
+	{
+		switch(Input)
+		{
+		case 0: return "A";
+		case 1: return "B";
+		case 2: return "C";
+		case 3: return "D";
+		case 4: return "E";
+		case 5: return "F";
+		case 6: return "G";
+		case 7: return "H";
+		case 8: return "I";
+		case 9: return "J";
+		case 10: return "K";
+		case 11: return "L";
+		}
+		return "Z";
+	}
+	
+	public static Object[] addArray(Object[] Old, Object[] New)
+	{
+		Object[] result = new Object[Old.length+New.length];
+		for(int zahl = 0; zahl < result.length; zahl++)
+			if(zahl < Old.length)
+				result[zahl] = Old[zahl];
+			else
+				result[zahl] = New[zahl-Old.length];
+		return result;
+	}
+	
+	public static ItemStack ObjectToItemStack(Object Input)
+	{
+		if(Input instanceof Item){
+			return new ItemStack((Item) Input);
+		}else if(Input instanceof Block){
+			return new ItemStack((Block) Input);
+		}else if(Input instanceof ItemStack){
+			return (ItemStack) Input;
+		}else{
+			return null;
+		}
+	}
+	
+	public static String ObjecttoString(Object[] items)
+	{
+		String Result = "";
+		for(int zahl = 0; zahl < items.length; zahl++)
+		{
+			if(zahl > 0)Result = Result + ";";
+			Object item = items[zahl];
+			if(item instanceof Item){
+				Result = Result + ((Item)item).getItemStackDisplayName(new ItemStack(((Item)item)));
+			}else if(item instanceof Block){
+				Result = Result + ((Block)item).getLocalizedName();
+			}else if(item instanceof ItemStack){
+				try{
+					Result = ((ItemStack) item).getDisplayName();
+				}catch(Exception e){
+					Result = Result + ItemStackToStringDisabled((ItemStack) item);
+				}
+			}else if(item instanceof List<?>){
+				List stacks = (List) item;
+				Result = Result + ObjecttoString(((List) item).toArray());
+			}else if(item instanceof String){
+				Result = Result + item;
+			}
+				
+		}
+		if(Result == null)
+			return "";
+		return Result.toLowerCase();
+	}
+	
+	public static ArrayList getRecipes(List recipes, String text)
+	{
+		ArrayList currentRecipes = new ArrayList();
+		if(!text.equals(""))
+		{
+			for(int zahl = 0; zahl < recipes.size();zahl++)
+			{
+				boolean added = false;
+				if("disabled".contains(text) && DisableSystem.disableRecipes.contains(recipes.get(zahl)))
+				{
+					added = true;
+				}
+				
+				if("enabled".contains(text) && !DisableSystem.disableRecipes.contains(recipes.get(zahl)))
+				{
+					added = true;
+				}
+				
+				if(recipes.get(zahl).getClass().getName().toLowerCase().contains(text))
+				{
+					added = true;
+				}
+				
+				if(recipes.get(zahl) instanceof ShapedRecipes)
+				{
+					ShapedRecipes recipe = (ShapedRecipes) recipes.get(zahl);
+					if(ObjecttoString(recipe.recipeItems).contains(text))
+					{
+						added = true;
+					}
+				} 
+				else if(recipes.get(zahl) instanceof ShapelessRecipes)
+				{
+					ShapelessRecipes recipe = (ShapelessRecipes) recipes.get(zahl);
+					if(ObjecttoString(recipe.recipeItems.toArray()).contains(text))
+					{
+						added = true;
+					}
+				}
+				else if(recipes.get(zahl) instanceof ShapelessOreRecipe)
+				{
+					ShapelessOreRecipe recipe = (ShapelessOreRecipe) recipes.get(zahl);
+					if(ObjecttoString(recipe.getInput().toArray()).contains(text))
+					{
+						added = true;
+					}
+				}	
+				else if(recipes.get(zahl) instanceof ShapedOreRecipe)
+				{
+					ShapedOreRecipe recipe = (ShapedOreRecipe) recipes.get(zahl);
+					if(ObjecttoString(recipe.getInput()).contains(text))
+					{
+						added = true;
+					}
+				}	
+				if(added)
+					currentRecipes.add(recipes.get(zahl));
+				if(recipes.get(zahl) instanceof IRecipe)
+				{
+					IRecipe recipe = (IRecipe) recipes.get(zahl);
+					if(!added && ObjecttoString(new Object[]{recipe.getRecipeOutput()}).contains(text))
+						currentRecipes.add(recipes.get(zahl));
+				}
+			}
+		}else{
+			currentRecipes.addAll(recipes);
+		}
+		return currentRecipes;
+	}
+	
+	public static boolean canRecipeBeFound(IRecipe recipe, String search) {
+		if(!search.equals(""))
+		{
+			if("disabled".contains(search) && DisableSystem.disableRecipes.contains(recipe))
+				return true;
+			
+			if("enabled".contains(search) && !DisableSystem.disableRecipes.contains(recipe))
+				return true;
+			
+			String test = recipe.getClass().getName().toLowerCase();
+			if(recipe.getClass().getName().toLowerCase().contains(search))
+				return true;
+			
+			if(recipe instanceof ShapedRecipes)
+			{
+				if(WorkbenchHelper.ObjecttoString(((ShapedRecipes) recipe).recipeItems).contains(search))
+					return true;
+			} 
+			
+			if(recipe instanceof ShapelessRecipes)
+			{
+				if(WorkbenchHelper.ObjecttoString(((ShapelessRecipes)recipe).recipeItems.toArray()).contains(search))
+					return true;
+			}
+			
+			if(recipe instanceof ShapelessOreRecipe)
+			{
+				if(WorkbenchHelper.ObjecttoString(((ShapelessOreRecipe)recipe).getInput().toArray()).contains(search))
+					return true;
+			}	
+			
+			if(recipe instanceof ShapedOreRecipe)
+			{
+				if(WorkbenchHelper.ObjecttoString(((ShapedOreRecipe)recipe).getInput()).contains(search))
+					return true;
+			}	
+			if(WorkbenchHelper.ObjecttoString(new Object[]{recipe.getRecipeOutput()}).contains(search))
+				return true;
+			return false;
+		}
+		return true;
+	}
+}
