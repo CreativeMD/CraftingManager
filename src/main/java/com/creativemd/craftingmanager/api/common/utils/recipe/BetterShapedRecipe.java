@@ -94,6 +94,16 @@ public class BetterShapedRecipe extends ShapedOreRecipe{
         {
             return false;
         }
+        if(info != null && !info.ore.equals(""))
+        {
+        	int[] id = OreDictionary.getOreIDs(target);
+        	boolean found = false;
+        	for (int i = 0; i < id.length; i++) {
+				if(OreDictionary.getOreName(id[i]).equals(info.ore))
+					found = true;
+			}
+        	return found;
+        }
         if(target.getItem() != input.getItem())
         	return false;
         if(target.getItemDamage() != OreDictionary.WILDCARD_VALUE && target.getItemDamage() != input.getItemDamage() && info.needDamage())

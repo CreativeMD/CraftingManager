@@ -90,7 +90,6 @@ public class AddedSystem extends ConfigSystem {
 		String[] recipes = new String[addedRecipes.size()];
 		for(int zahl = 0; zahl < recipes.length; zahl++)
 			recipes[zahl] = StringUtils.ObjectsToString(WorkbenchHelper.getRecipeCategoryString(addedRecipes.get(zahl)), WorkbenchHelper.RecipeToString((IRecipe) addedRecipes.get(zahl)));
-		//TODO HERE is the mistake
 		entries.addAll(ArrayPacketEntry.getPacketArray(recipes));
 		return entries;
 	}
