@@ -143,59 +143,7 @@ public class CraftingManagerMod extends DummyModContainer{
 	@EventHandler
 	public void load(FMLInitializationEvent event)
 	{
-		NetworkRegistry.INSTANCE.registerGuiHandler(this, new GuiHandler());
-		MinecraftForge.EVENT_BUS.register(new com.creativemd.craftingmanager.mod.utils.EventHandler());
-		FMLCommonHandler.instance().bus().register(new com.creativemd.craftingmanager.mod.utils.EventHandler());
-		CreativeCorePacket.registerPacket(CraftResultPacket.class, "CraftResult");
-		CreativeCorePacket.registerPacket(GuiPacket.class, "ConfigGui");
-		CreativeCorePacket.registerPacket(GuiPopupPacket.class, "GuiPopup");
-		CreativeCorePacket.registerPacket(RecievePacket.class, "RecieveConfig");
-		CreativeCorePacket.registerPacket(SystemPacket.class, "CSystemUpdate");
-		//network.registerMessage((Class<? extends IMessageHandler<IMessage, IMessage>>)ReceiveHandler.class, (Class<? extends IMessage>)SystemPacket.class, 0, Side.CLIENT);
-		
-		proxy.loadSide();
-		RecipeSorter.register("craftingmanager:bettershaped", BetterShapedRecipe.class, RecipeSorter.Category.SHAPED, "after:minecraft:shaped before:minecraft:shapeless");
-		RecipeSorter.register("craftingmanager:bettershapeless", BetterShapelessRecipe.class, RecipeSorter.Category.SHAPELESS, "after:minecraft:shapeless");
-		
-		//PacketEntry.registerEntry(ArrayPacketEntry.class);
-		PacketEntry.registerEntry(IntegerPacketEntry.class);
-		PacketEntry.registerEntry(BooleanPacketEntry.class);
-		PacketEntry.registerEntry(StringPacketEntry.class);
-		
-		StringUtils.loadUtils();
-		
-		//Add Configs
-		coreSystem = (CoreSystem) ConfigRegistry.registerConfig(new CoreSystem());
-		disableSystem = (DisableSystem) ConfigRegistry.registerConfig(new DisableSystem());
-		addedSystem = (AddedSystem) ConfigRegistry.registerConfig(new AddedSystem());
-		disableFurnace = (DisableFurnace) ConfigRegistry.registerConfig(new DisableFurnace());
-		addFurnace = (AddFurnace) ConfigRegistry.registerConfig(new AddFurnace());
-	}
-	
-	public static void showGui(EntityPlayer player, int id, boolean correct)
-	{
-		showGui(player, id, correct, 0);
-	}
-		
-	public static void showGui(EntityPlayer player, int id, boolean correct, int page)
-	{
-		if(correct)
-		{
-			if(id < 0)
-				id = ConfigRegistry.systems.size()-1;
-			if(id >= ConfigRegistry.systems.size())
-				id = 0;
-		}
-		if(FMLCommonHandler.instance().getEffectiveSide() == Side.CLIENT)
-			GuiConfig.notClosing = true;
-		
-		if(FMLCommonHandler.instance().getEffectiveSide() == Side.SERVER && player instanceof EntityPlayerMP)
-		{
-			((EntityPlayerMP)player).openGui(CraftingManagerMod.instance, id, ((EntityPlayerMP)player).worldObj, (int)((EntityPlayerMP)player).posX, (int)((EntityPlayerMP)player).posY, (int)((EntityPlayerMP)player).posZ);
-			PacketHandler.sendPacketToPlayer(new GuiPacket(id, page), (EntityPlayerMP) player);
-		}else{
-			PacketHandler.sendPacketToServer(new GuiPacket(id, page));
-		}
+		CraftingMangerExternal.load(event);
 	}
 	
 	@EventHandler
@@ -220,39 +168,28 @@ public class CraftingManagerMod extends DummyModContainer{
 		}
 	}
 	
+	public static void showGui(EntityPlayer player, int id, boolean correct)
+	{
+		showGui(player, id, correct, 0);
+	}
+		
+	public static void showGui(EntityPlayer player, int id, boolean correct, int page)
+	{
+		CraftingMangerExternal.showGui(player, id, correct, page);
+	}
+	
 	public static void sendUpdateToServer()
 	{
-		for(int zahl = 0; zahl < ConfigRegistry.systems.size(); zahl++)
-		{
-			ArrayList<CreativeCorePacket> packets = SystemPacket.getPackets(zahl);
-			for (int i = 0; i < packets.size(); i++) {
-				com.creativemd.craftingmanager.mod.utils.EventHandler.packetrequest.add(new PacketRequest(null, packets.get(i), true));
-			}
-			
-		}
-		com.creativemd.craftingmanager.mod.utils.EventHandler.packetrequest.add(new PacketRequest(null, new RecievePacket(), true));
+		CraftingMangerExternal.sendUpdateToServer();
 	}
 	
 	public static void sendUpdateToAll(int systemID)
 	{
-		ArrayList<CreativeCorePacket> packets = SystemPacket.getPackets(systemID);
-		for (int i = 0; i < packets.size(); i++) {
-			com.creativemd.craftingmanager.mod.utils.EventHandler.packetrequest.add(new PacketRequest(null, packets.get(i), false));
-		}
+		CraftingMangerExternal.sendUpdateToAll(systemID);
 	}
 	
 	public static void sendUpdateToClient(EntityPlayer player)
 	{
-		for(int zahl = 0; zahl < ConfigRegistry.systems.size(); zahl++)
-		{
-			if(ConfigRegistry.systems.get(zahl).needClientUpdate())
-			{
-				ArrayList<CreativeCorePacket> packets = SystemPacket.getPackets(zahl);
-				for (int i = 0; i < packets.size(); i++) {
-					com.creativemd.craftingmanager.mod.utils.EventHandler.packetrequest.add(new PacketRequest((EntityPlayerMP) player, packets.get(i), false));
-				}
-			}
-		}
-		com.creativemd.craftingmanager.mod.utils.EventHandler.packetrequest.add(new PacketRequest(player, new RecievePacket(), false));
+		CraftingMangerExternal.sendUpdateToClient(player);
 	}
 }
